@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>一笔连线游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #fef5e0 0%, #fce9c9 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .game-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .character {
+            font-size: 32px;
+        }
+
+        .warning {
+            background: linear-gradient(90deg, #f5a623 0%, #f7b84e 100%);
+            color: white;
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(245, 166, 35, 0.3);
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .grid {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            background: #fff8e7;
+            border: 2px solid transparent;
+        }
+
+        .cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .cell.target {
+            background: linear-gradient(135deg, #fff8e7 0%, #fff0d6 100%);
+        }
+
+        .cell.obstacle {
+            background: #fff;
+        }
+
+        .cell.visited {
+            background: linear-gradient(135deg, #ffe4b5 0%, #ffd494 100%);
+            animation: visitedAnim 0.3s ease;
+        }
+
+        .cell.current {
+            border-color: #f5a623;
+            box-shadow: 0 0 15px rgba(245, 166, 35, 0.5);
+        }
+
+        @keyframes visitedAnim {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .line-canvas {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #f5a623 0%, #f7b84e 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 166, 35, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #666;
+            border: 2px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            border-color: #f5a623;
+            color: #f5a623;
+        }
+
+        .level-info {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .level-selector {
+            display: flex;
+            gap: 8px;
+        }
+
+        .level-btn {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .level-btn.active {
+            background: #f5a623;
+            color: white;
+            border-color: #f5a623;
+        }
+
+        .level-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .success-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .success-modal.show {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-content h2 {
+            color: #f5a623;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .celebration {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .final-modal {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cc 100%);
+        }
+
+        .final-modal h2 {
+            color: #f5a623;
+            font-size: 36px;
+        }
+
+        .stars {
+            font-size: 36px;
+            margin: 15px 0;
+            color: #f5a623;
+        }
+
+        .final-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .share-modal {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        }
+
+        .share-modal h2 {
+            color: #4caf50;
+        }
+
+        .time-label {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .time-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #4caf50;
+            margin-bottom: 20px;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .hint {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #fff3e0;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #8d6e63;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-header">
+        <div class="game-title">
+            <span>不碰到</span>
+            <span class="character">😜</span>
+            <span>一笔连完所有</span>
+            <span id="target-icon">🌶️</span>
+        </div>
+        <div class="warning">请勿斜连/重复</div>
+    </div>
+
+    <div class="game-container">
+        <canvas class="line-canvas" id="lineCanvas"></canvas>
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="level-info">
+        <span>关卡:</span>
+        <div class="level-selector" id="levelSelector"></div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-secondary" id="resetBtn">重新开始</button>
+        <button class="btn btn-primary" id="nextBtn">下一关</button>
+    </div>
+
+    <div class="hint">
+        💡 提示：点击起点开始连线，只能上下左右移动，不能碰到白色小人
+    </div>
+
+    <div class="success-modal" id="successModal">
+        <div class="modal-content">
+            <div class="celebration">🎉</div>
+            <h2>恭喜过关！</h2>
+            <p>你成功用一笔连完了所有目标！</p>
+            <button class="btn btn-primary" id="continueBtn">继续挑战</button>
+        </div>
+    </div>
+
+    <div class="success-modal" id="finalModal">
+        <div class="modal-content final-modal">
+            <div class="celebration">🏆</div>
+            <h2>全部通关！</h2>
+            <p>恭喜你完成了所有关卡！</p>
+            <p class="stars">⭐⭐⭐</p>
+            <div class="final-buttons">
+                <button class="btn btn-secondary" id="shareBtn">分享成绩</button>
+                <button class="btn btn-primary" id="replayBtn">再玩一次</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="success-modal" id="shareModal">
+        <div class="modal-content share-modal" id="shareCard">
+            <div class="celebration">📊</div>
+            <h2>游戏成绩</h2>
+            <p class="time-label">总用时</p>
+            <p class="time-value" id="totalTime">00:00</p>
+            <div class="share-buttons">
+                <button class="btn btn-secondary" id="exportImgBtn">📷 导出图片</button>
+                <button class="btn btn-primary" id="closeShareBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script>
+        const levels = [
+            {
+                grid: [
+                    ['😜', '🍄', '🍄', '🍄'],
+                    ['🍄', '🍄', '🍄', '🍄'],
+                    ['🍄', '🍄', '🍄', '🍄'],
+                    ['🍄', '🍄', '😜', '🍄']
+                ],
+                obstacle: '😜',
+                target: '🍄',
+                color: '#8b4513'
+            },
+            {
+                grid: [
+                    ['😜', '🍓', '🍓', '🍓', '🍓'],
+                    ['🍓', '🍓', '🍓', '🍓', '🍓'],
+                    ['🍓', '🍓', '🍓', '🍓', '😜'],
+                    ['🍓', '🍓', '😜', '🍓', '🍓'],
+                    ['🍓', '🍓', '🍓', '🍓', '🍓']
+                ],
+                obstacle: '😜',
+                target: '🍓',
+                color: '#e74c3c'
+            },
+            {
+                grid: [
+                    ['🌶️', '🌶️', '🌶️', '🌶️', '🌶️', '🌶️'],
+                    ['🌶️', '😜', '🌶️', '🌶️', '🌶️', '🌶️'],
+                    ['🌶️', '🌶️', '🌶️', '🌶️', '🌶️', '🌶️'],
+                    ['🌶️', '🌶️', '🌶️', '😜', '🌶️', '🌶️'],
+                    ['🌶️', '🌶️', '🌶️', '🌶️', '🌶️', '🌶️'],
+                    ['🌶️', '🌶️', '😜', '🌶️', '🌶️', '🌶️']
+                ],
+                obstacle: '😜',
+                target: '🌶️',
+                color: '#f5a623'
+            }
+        ];
+
+        let currentLevel = 0;
+        let grid = [];
+        let visited = [];
+        let path = [];
+        let isDrawing = false;
+        let startCell = null;
+        let canvas = null;
+        let ctx = null;
+        let startTime = 0;
+        let timerInterval = null;
+
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            return Date.now() - startTime;
+        }
+
+        function initGame() {
+            const level = levels[currentLevel];
+            document.getElementById('target-icon').textContent = level.target;
+            
+            if (currentLevel === 0) {
+                startTimer();
+            }
+            
+            const gridElement = document.getElementById('grid');
+            gridElement.innerHTML = '';
+            
+            grid = level.grid;
+            visited = grid.map(row => row.map(() => false));
+            path = [];
+            isDrawing = false;
+            
+            grid.forEach((row, rowIndex) => {
+                const rowElement = document.createElement('div');
+                rowElement.className = 'row';
+                
+                row.forEach((cell, colIndex) => {
+                    const cellElement = document.createElement('div');
+                    cellElement.className = 'cell';
+                    cellElement.dataset.row = rowIndex;
+                    cellElement.dataset.col = colIndex;
+                    
+                    if (cell === level.target) {
+                        cellElement.classList.add('target');
+                        cellElement.textContent = level.target;
+                    } else {
+                        cellElement.classList.add('obstacle');
+                        cellElement.textContent = level.obstacle;
+                    }
+                    
+                    cellElement.addEventListener('mousedown', startDraw);
+                    cellElement.addEventListener('mouseenter', continueDraw);
+                    cellElement.addEventListener('mouseup', endDraw);
+                    
+                    cellElement.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        startDraw(e);
+                    });
+                    cellElement.addEventListener('touchmove', (e) => {
+                        e.preventDefault();
+                        continueDraw(e);
+                    });
+                    cellElement.addEventListener('touchend', endDraw);
+                    
+                    rowElement.appendChild(cellElement);
+                });
+                
+                gridElement.appendChild(rowElement);
+            });
+            
+            initCanvas();
+            updateLevelSelector();
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('lineCanvas');
+            ctx = canvas.getContext('2d');
+            
+            const gridElement = document.getElementById('grid');
+            canvas.width = gridElement.offsetWidth;
+            canvas.height = gridElement.offsetHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function startDraw(e) {
+            const target = e.target || e.touches[0].target;
+            const row = parseInt(target.dataset.row);
+            const col = parseInt(target.dataset.col);
+            
+            if (grid[row][col] !== levels[currentLevel].target) return;
+            
+            isDrawing = true;
+            visited[row][col] = true;
+            path.push({ row, col });
+            
+            target.classList.add('visited', 'current');
+            
+            ctx.beginPath();
+            const rect = target.getBoundingClientRect();
+            const gridRect = document.getElementById('grid').getBoundingClientRect();
+            const x = rect.left - gridRect.left + rect.width / 2;
+            const y = rect.top - gridRect.top + rect.height / 2;
+            ctx.moveTo(x, y);
+            ctx.strokeStyle = levels[currentLevel].color;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        function continueDraw(e) {
+            if (!isDrawing) return;
+            
+            const target = e.target || e.touches[0].target;
+            const row = parseInt(target.dataset.row);
+            const col = parseInt(target.dataset.col);
+            
+            if (isNaN(row) || isNaN(col)) return;
+            if (grid[row][col] !== levels[currentLevel].target) return;
+            if (visited[row][col]) return;
+            
+            const last = path[path.length - 1];
+            const rowDiff = Math.abs(row - last.row);
+            const colDiff = Math.abs(col - last.col);
+            
+            if (rowDiff + colDiff !== 1) return;
+            
+            visited[row][col] = true;
+            path.push({ row, col });
+            
+            target.classList.add('visited', 'current');
+            
+            document.querySelectorAll('.cell.current').forEach(c => {
+                if (c !== target) c.classList.remove('current');
+            });
+            
+            const rect = target.getBoundingClientRect();
+            const gridRect = document.getElementById('grid').getBoundingClientRect();
+            const x = rect.left - gridRect.left + rect.width / 2;
+            const y = rect.top - gridRect.top + rect.height / 2;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            checkWin();
+        }
+
+        function endDraw() {
+            if (isDrawing) {
+                isDrawing = false;
+                document.querySelectorAll('.cell.current').forEach(c => c.classList.remove('current'));
+            }
+        }
+
+        function checkWin() {
+            const level = levels[currentLevel];
+            let totalTargets = 0;
+            let visitedTargets = 0;
+            
+            grid.forEach((row, rowIndex) => {
+                row.forEach((cell, colIndex) => {
+                    if (cell === level.target) {
+                        totalTargets++;
+                        if (visited[rowIndex][colIndex]) visitedTargets++;
+                    }
+                });
+            });
+            
+            if (visitedTargets === totalTargets) {
+                const elapsedTime = stopTimer();
+                setTimeout(() => {
+                    if (currentLevel === levels.length - 1) {
+                        document.getElementById('totalTime').textContent = formatTime(elapsedTime);
+                        document.getElementById('finalModal').classList.add('show');
+                    } else {
+                        document.getElementById('successModal').classList.add('show');
+                    }
+                }, 300);
+            }
+        }
+
+        function resetGame() {
+            visited = grid.map(row => row.map(() => false));
+            path = [];
+            isDrawing = false;
+            
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('visited', 'current');
+            });
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function nextLevel() {
+            if (currentLevel < levels.length - 1) {
+                currentLevel++;
+                initGame();
+            }
+        }
+
+        function selectLevel(index) {
+            currentLevel = index;
+            initGame();
+        }
+
+        function updateLevelSelector() {
+            const selector = document.getElementById('levelSelector');
+            selector.innerHTML = '';
+            
+            levels.forEach((_, index) => {
+                const btn = document.createElement('button');
+                btn.className = `level-btn ${index === currentLevel ? 'active' : ''}`;
+                btn.textContent = index + 1;
+                btn.addEventListener('click', () => selectLevel(index));
+                selector.appendChild(btn);
+            });
+        }
+
+        document.getElementById('resetBtn').addEventListener('click', resetGame);
+        document.getElementById('nextBtn').addEventListener('click', nextLevel);
+        document.getElementById('continueBtn').addEventListener('click', () => {
+            document.getElementById('successModal').classList.remove('show');
+            if (currentLevel < levels.length - 1) {
+                nextLevel();
+            }
+        });
+
+        document.getElementById('replayBtn').addEventListener('click', () => {
+            document.getElementById('finalModal').classList.remove('show');
+            currentLevel = 0;
+            initGame();
+        });
+
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            document.getElementById('finalModal').classList.remove('show');
+            document.getElementById('shareModal').classList.add('show');
+        });
+
+        document.getElementById('closeShareBtn').addEventListener('click', () => {
+            document.getElementById('shareModal').classList.remove('show');
+        });
+
+        document.getElementById('exportImgBtn').addEventListener('click', async () => {
+            const shareCard = document.getElementById('shareCard');
+            try {
+                const canvas = await html2canvas(shareCard, {
+                    backgroundColor: '#c8e6c9',
+                    scale: 2
+                });
+                const link = document.createElement('a');
+                link.download = '游戏成绩.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (e) {
+                alert('导出失败，请重试');
+            }
+        });
+
+        window.addEventListener('mouseup', endDraw);
+        window.addEventListener('touchend', endDraw);
+
+        initGame();
+    </script>
+</body>
+</html>
